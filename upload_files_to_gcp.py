@@ -4,10 +4,10 @@ from dotenv import load_dotenv
 from google.cloud import storage, bigquery
 from google.cloud.exceptions import NotFound
 
-# --- Load environment variables from .env file ---
+# Load env variables
 load_dotenv()
 
-# --- GCP Configuration ---
+# GCP Configuration
 GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID")
 GCP_BUCKET_NAME = os.getenv("GCP_BUCKET_NAME")
 GCP_SERVICE_ACCOUNT_KEY_PATH = os.getenv("GCP_SERVICE_ACCOUNT_KEY_PATH")
@@ -25,9 +25,11 @@ try:
 except Exception as e:
     raise RuntimeError(f"Failed to initialize GCP clients. Check your service account key path and permissions: {e}")
 
-# --- Helper function for data type inference (adapted for BigQuery types) ---
+# Helper function for data type inference
 def infer_column_type(value):
-    """Infers the BigQuery data type from a given value."""
+    
+    # Infers the BigQuery data type from a given value.
+    
     if value is None or value == '':
         return 'STRING'
     if isinstance(value, bool):
@@ -45,10 +47,9 @@ def infer_column_type(value):
     return 'STRING'
 
 def get_table_schema_from_csv(file_path: str, num_rows_for_inference: int = 100) -> list[bigquery.SchemaField] | None:
-    """
-    Infers table schema (column names and BigQuery types) from a CSV file.
-    Returns a list of bigquery.SchemaField objects.
-    """
+    
+    # Infers table schema (column names and BigQuery types) from a CSV file.
+    
     columns_info = {}
     try:
         with open(file_path, 'r', encoding='utf-8') as csvfile:
@@ -78,10 +79,6 @@ def get_table_schema_from_csv(file_path: str, num_rows_for_inference: int = 100)
                         elif inferred_type == 'FLOAT' and current_type == 'INTEGER':
                             columns_info[header_name]['type'] = 'FLOAT'
 
-        # --- REMOVIDO AQUI: Não adicionamos 'partition' ao esquema inferido ---
-        # if 'partition' not in columns_info:
-        #     columns_info['partition'] = {'name': 'partition', 'type': 'STRING'}
-
         bq_schema_fields = []
         for col_name, info in columns_info.items():
             bq_schema_fields.append(bigquery.SchemaField(info['name'], info['type'], mode='NULLABLE'))
@@ -92,7 +89,9 @@ def get_table_schema_from_csv(file_path: str, num_rows_for_inference: int = 100)
         return None
 
 def ensure_bigquery_dataset_exists(dataset_id: str):
-    """Ensures that the BigQuery dataset exists, creating it if necessary."""
+    
+    # Ensures that the BigQuery dataset exists, creating it if necessary.
+    
     dataset_ref = bigquery_client.dataset(dataset_id)
     try:
         bigquery_client.get_dataset(dataset_ref)
@@ -103,10 +102,9 @@ def ensure_bigquery_dataset_exists(dataset_id: str):
         print(f"BigQuery Dataset '{dataset_id}' created.")
 
 def ensure_bigquery_table_exists(table_id: str, bq_schema: list[bigquery.SchemaField]):
-    """
-    Ensures that the BigQuery table exists with the specified schema.
-    Creates it if it doesn't exist.
-    """
+    
+    # Ensures that the BigQuery table exists with the specified schema and creates it if it doesn't exist.
+    
     dataset_ref = bigquery_client.dataset(BIGQUERY_DATASET_ID)
     table_ref = dataset_ref.table(table_id)
 
@@ -125,10 +123,9 @@ def ensure_bigquery_table_exists(table_id: str, bq_schema: list[bigquery.SchemaF
         return False
 
 def upload_csv_to_gcs(file_path: str, filename: str, gcs_bucket_name: str, gcs_prefix: str = "raw_csv_uploads/"):
-    """
-    Uploads a CSV file to Google Cloud Storage.
-    Returns the GCS URI of the uploaded file.
-    """
+    
+    # Uploads a CSV file to Google Cloud Storage.
+    
     bucket = storage_client.bucket(gcs_bucket_name)
     blob_name = f"{gcs_prefix}{filename}"
     blob = bucket.blob(blob_name)
@@ -140,9 +137,9 @@ def upload_csv_to_gcs(file_path: str, filename: str, gcs_bucket_name: str, gcs_p
     return gcs_uri
 
 def load_gcs_csv_to_bigquery(gcs_uri: str, table_id: str, bq_schema: list[bigquery.SchemaField], filename: str):
-    """
-    Loads data from a GCS CSV file into a BigQuery table.
-    """
+    
+    # Loads data from a GCS CSV file into a BigQuery table.
+    
     dataset_ref = bigquery_client.dataset(BIGQUERY_DATASET_ID)
     table_ref = dataset_ref.table(table_id)
 
@@ -171,9 +168,9 @@ def load_gcs_csv_to_bigquery(gcs_uri: str, table_id: str, bq_schema: list[bigque
         return False
 
 def process_and_upload_csv_data(file_path: str):
-    """
-    Parses the filename, uploads CSV to GCS, and loads data into BigQuery.
-    """
+    
+    # Parses the filename, uploads CSV to GCS, and loads data into BigQuery.
+    
     filename = os.path.basename(file_path)
     base_name, file_extension = os.path.splitext(filename)
 
@@ -187,7 +184,7 @@ def process_and_upload_csv_data(file_path: str):
     try:
         parts = base_name.split('_DadosAbertos_')
         table_id = parts[0].lower()
-        partition_value = parts[1] # Still extracting this for potential future use or logging
+        partition_value = parts[1]
 
         if not table_id:
             print(f"Could not determine table ID for '{filename}'. Skipping.")
@@ -222,10 +219,9 @@ def process_and_upload_csv_data(file_path: str):
 
 
 def process_directory(directory_path: str):
-    """
-    Reads a directory and attempts to process and upload data from each CSV file
-    to GCP (GCS then BigQuery) based on filename patterns.
-    """
+    
+    # Reads a directory and attempts to process and upload data from each CSV file to GCP (GCS then BigQuery) based on filename patterns.
+    
     if not os.path.isdir(directory_path):
         print(f"Error: The provided path '{directory_path}' is not a valid directory.")
         return
